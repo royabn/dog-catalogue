@@ -1,6 +1,7 @@
 <script setup>
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import BaseButton from './components/BaseButton.vue';
+import DeleteConfirmDialog from './components/DeleteConfirmDialog.vue';
 import DogForm from './components/DogForm.vue';
 import DogTable from './components/DogTable.vue';
 import Pagination from './components/Pagination.vue';
@@ -15,15 +16,18 @@ const sort = ref('name');
 const search = ref('');
 const activeSearch = ref('');
 const page = ref(1);
-const limit = ref(12);
-const pagination = ref({ page: 1, limit: 12, total: 0, totalPages: 1 });
+const limit = ref(9);
+const pagination = ref({ page: 1, limit: 9, total: 0, totalPages: 1 });
 const formDog = ref(null);
 const formOpen = ref(false);
+const deleteTarget = ref(null);
+const deleting = ref(false);
 const toast = ref('');
 const error = ref('');
 const { isDark, toggleTheme } = useTheme();
 let debounceTimer;
 let latestRequest = 0;
+let deleteReturnFocus;
 
 async function loadDogs() {
   const requestId = ++latestRequest;
@@ -56,7 +60,6 @@ function closeForm() { if (!saving.value) formOpen.value = false; }
 function changePage(nextPage) {
   if (nextPage === page.value || nextPage < 1 || nextPage > pagination.value.totalPages) return;
   page.value = nextPage;
-  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 function notify(message) {
   toast.value = message;
@@ -83,15 +86,33 @@ async function saveDog(payload) {
   }
 }
 
-async function deleteDog(dog) {
-  const confirmed = window.confirm(`Delete ${dog.name}? This cannot be undone.`);
-  if (!confirmed) return;
+function requestDelete(dog, returnFocus) {
+  deleteTarget.value = dog;
+  deleteReturnFocus = returnFocus;
+}
+
+async function closeDeleteDialog() {
+  if (deleting.value) return;
+  deleteTarget.value = null;
+  await nextTick();
+  if (deleteReturnFocus?.isConnected) deleteReturnFocus.focus();
+  deleteReturnFocus = null;
+}
+
+async function confirmDelete() {
+  if (!deleteTarget.value || deleting.value) return;
+  const dog = deleteTarget.value;
+  deleting.value = true;
   try {
     await dogsApi.remove(dog._id);
     notify(`${dog.name} deleted`);
+    deleteTarget.value = null;
+    deleteReturnFocus = null;
     await loadDogs();
   } catch (requestError) {
     notify(requestError.message);
+  } finally {
+    deleting.value = false;
   }
 }
 
@@ -111,15 +132,15 @@ onBeforeUnmount(() => window.clearTimeout(debounceTimer));
 </script>
 
 <template>
-  <main class="relative mx-auto max-w-290 px-4 pb-8 md:px-7">
-    <header class="flex h-16 items-center justify-between">
+  <main class="relative mx-auto max-w-290 px-4 pb-4 md:px-7">
+    <header class="flex h-14 items-center justify-between">
       <a class="inline-flex items-center gap-2 font-bold tracking-tight text-[var(--text)] no-underline" href="/" aria-label="Dog Catalogue home"><span class="text-xl">🐾</span> Dog Catalogue</a>
       <button class="rounded-[10px] border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm font-semibold text-[var(--text)] transition hover:-translate-y-px hover:bg-[var(--surface-muted)]" type="button" :aria-label="`Switch to ${isDark ? 'light' : 'dark'} mode`" @click="toggleTheme">
         {{ isDark ? '☀ Light' : '☾ Dark' }}
       </button>
     </header>
 
-    <section class="mb-5 grid gap-3 sm:grid-cols-[minmax(220px,1fr)_auto_auto] sm:items-center" aria-label="Catalogue controls">
+    <section class="mb-4 grid gap-3 sm:grid-cols-[minmax(220px,1fr)_auto_auto] sm:items-center" aria-label="Catalogue controls">
       <label class="relative block">
         <span class="sr-only">Search breeds</span>
         <span class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[var(--muted)]">⌕</span>
@@ -131,12 +152,23 @@ onBeforeUnmount(() => window.clearTimeout(debounceTimer));
     </section>
 
     <p v-if="error" class="mb-4 flex justify-between gap-2 rounded-lg bg-[var(--danger)] p-2.5 text-sm text-white" role="alert">{{ error }} <button class="font-bold underline" @click="loadDogs">Try again</button></p>
-    <DogTable :dogs="dogs" :loading="loading" @edit="openEdit" @delete="deleteDog" />
-    <div class="mt-5 flex items-center justify-end">
-      <label class="flex items-center gap-2 text-sm text-[var(--muted)]">Show <select v-model.number="limit" class="rounded-lg border border-[var(--line)] bg-[var(--surface)] p-1.5 text-[var(--text)]" aria-label="Breeds per page"><option :value="6">6</option><option :value="12">12</option><option :value="24">24</option></select> per page</label>
-    </div>
-    <Pagination :page="pagination.page" :total-pages="pagination.totalPages" :total="pagination.total" @change="changePage" />
+    <DogTable :dogs="dogs" :loading="loading" @edit="openEdit" @delete="requestDelete" />
+    <Pagination
+      :page="pagination.page"
+      :total-pages="pagination.totalPages"
+      :total="pagination.total"
+      :limit="limit"
+      @change="changePage"
+      @update:limit="limit = $event"
+    />
     <DogForm v-if="formOpen" :dog="formDog" :saving="saving" @close="closeForm" @save="saveDog" />
+    <DeleteConfirmDialog
+      v-if="deleteTarget"
+      :dog="deleteTarget"
+      :deleting="deleting"
+      @cancel="closeDeleteDialog"
+      @confirm="confirmDelete"
+    />
     <div v-if="toast" class="toast" role="status">{{ toast }}</div>
   </main>
 </template>
