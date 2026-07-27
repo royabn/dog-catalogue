@@ -34,7 +34,7 @@ function submit() {
 </script>
 
 <template>
-  <div class="fixed inset-0 z-10 grid place-items-center bg-slate-950/60 p-5 backdrop-blur-sm" role="presentation" @click.self="emit('close')">
+  <div class="fixed inset-0 z-10 grid place-items-center bg-slate-950/60 p-5 backdrop-blur-sm" role="presentation" @click.self="emit('close')" @keydown.esc="emit('close')">
     <section class="w-full max-w-[460px] rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-6 shadow-[0_28px_90px_rgba(0,0,0,.32)]" role="dialog" aria-modal="true" :aria-label="title">
       <header class="mb-6 flex items-start justify-between gap-4">
         <div>
