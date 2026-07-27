@@ -8,15 +8,15 @@ function label(value) {
 </script>
 
 <template>
-  <section class="min-h-0 md:overflow-hidden" aria-live="polite" aria-busy="loading">
+  <section aria-live="polite" :aria-busy="loading">
     <div v-if="loading" class="flex min-h-72 items-center justify-center gap-2 text-[var(--muted)]"><span class="size-[18px] animate-spin rounded-full border-2 border-[var(--line)] border-t-[var(--primary)]"></span>Loading breeds…</div>
     <div v-else-if="!dogs.length" class="grid min-h-72 place-content-center justify-items-center text-center text-[var(--muted)]">
       <span class="mb-2.5 grid size-[52px] place-items-center rounded-full bg-[var(--tag)] text-2xl text-[var(--primary)]">⌕</span>
       <h2 class="mb-1 text-base font-bold text-[var(--text)]">No breeds found</h2>
       <p class="m-0 max-w-75 leading-6">Try a different search, or add a new breed to the catalogue.</p>
     </div>
-    <ul v-else class="m-0 grid list-none grid-cols-1 gap-4 p-0 md:h-full md:auto-rows-fr md:grid-cols-2 xl:grid-cols-3">
-      <li v-for="dog in dogs" :key="dog._id" class="dog-card min-h-41 rounded-[14px] border border-[var(--line)] bg-[var(--surface)] p-[18px] shadow-[0_2px_5px_rgba(20,33,61,.02)] transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)] md:min-h-0 md:overflow-auto">
+    <ul v-else class="m-0 grid list-none grid-cols-1 gap-4 p-0 md:grid-cols-2 xl:grid-cols-3">
+      <li v-for="dog in dogs" :key="dog._id" class="dog-card min-h-41 rounded-[14px] border border-[var(--line)] bg-[var(--surface)] p-[18px] shadow-[0_2px_5px_rgba(20,33,61,.02)] transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)]">
         <div class="flex items-start gap-2.5">
           <span class="grid size-[37px] shrink-0 place-items-center rounded-[10px] bg-[var(--surface-muted)]" aria-hidden="true">🐕</span>
           <div>
