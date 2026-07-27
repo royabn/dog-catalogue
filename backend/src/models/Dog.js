@@ -17,6 +17,7 @@ const dogSchema = new mongoose.Schema(
 
 dogSchema.index({ name: 1 }, { unique: true });
 dogSchema.index({ subBreeds: 1 });
-dogSchema.index({ name: 'text', subBreeds: 'text' }, { weights: { name: 10, subBreeds: 3 }, name: 'dog_search' });
+dogSchema.index({ createdAt: -1, _id: 1 });
+dogSchema.index({ updatedAt: -1, _id: 1 });
 
 export const Dog = mongoose.model('Dog', dogSchema);

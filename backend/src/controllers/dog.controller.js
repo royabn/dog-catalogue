@@ -7,6 +7,7 @@ import { sanitizePlainText } from '../utils/input.js';
 
 const maxSubBreeds = 20;
 const maxSubBreedTextLength = 500;
+const maxSearchLength = 80;
 const textField = (maxLength) => z.string().transform(sanitizePlainText).pipe(z.string().min(1).max(maxLength));
 const dogInput = z.object({
   name: textField(80),
@@ -21,6 +22,7 @@ const listInput = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(12),
   sort: z.enum(['name', 'newest', 'updated']).default('name'),
+  search: z.string().max(maxSearchLength).transform(sanitizePlainText).default(''),
 });
 
 export async function getDogs(req, res) {
