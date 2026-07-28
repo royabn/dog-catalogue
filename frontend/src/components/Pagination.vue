@@ -21,7 +21,7 @@ function goToPage() {
 </script>
 
 <template>
-  <nav v-if="total" class="flex flex-wrap items-center justify-between gap-x-5 gap-y-3 pt-4 text-sm text-[var(--muted)] lg:flex-nowrap" aria-label="Pagination">
+  <nav v-if="total" class="sticky bottom-0 z-10 mt-auto flex flex-wrap items-center justify-between gap-x-5 gap-y-3 border-t border-[var(--line)] bg-[color:color-mix(in_srgb,var(--bg)_94%,transparent)] py-3 text-sm text-[var(--muted)] shadow-[0_-10px_24px_color-mix(in_srgb,var(--bg)_88%,transparent)] backdrop-blur-md lg:flex-nowrap" aria-label="Pagination">
     <p class="m-0 whitespace-nowrap">{{ total }} breed{{ total === 1 ? '' : 's' }} total</p>
     <div class="flex items-center gap-2 whitespace-nowrap">
       <BaseButton variant="quiet" :disabled="page <= 1" @click="emit('change', page - 1)">← Previous</BaseButton>
@@ -42,8 +42,8 @@ function goToPage() {
         @change="emit('update:limit', Number($event.target.value))"
       >
         <option :value="6">6</option>
-        <option :value="9">9</option>
         <option :value="12">12</option>
+        <option :value="15">15</option>
         <option :value="24">24</option>
       </select>
       per page

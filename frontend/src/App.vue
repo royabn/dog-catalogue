@@ -1,7 +1,8 @@
 <script setup>
-import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import BaseButton from './components/BaseButton.vue';
 import DeleteConfirmDialog from './components/DeleteConfirmDialog.vue';
+import DogDetailsDialog from './components/DogDetailsDialog.vue';
 import DogForm from './components/DogForm.vue';
 import DogTable from './components/DogTable.vue';
 import Pagination from './components/Pagination.vue';
@@ -16,10 +17,12 @@ const sort = ref('name');
 const search = ref('');
 const activeSearch = ref('');
 const page = ref(1);
-const limit = ref(9);
-const pagination = ref({ page: 1, limit: 9, total: 0, totalPages: 1 });
+const limit = ref(12);
+const pagination = ref({ page: 1, limit: 12, total: 0, totalPages: 1 });
 const formDog = ref(null);
 const formOpen = ref(false);
+const formErrors = ref({});
+const detailDog = ref(null);
 const deleteTarget = ref(null);
 const deleting = ref(false);
 const toast = ref('');
@@ -27,7 +30,6 @@ const error = ref('');
 const { isDark, toggleTheme } = useTheme();
 let debounceTimer;
 let latestRequest = 0;
-let deleteReturnFocus;
 
 async function loadDogs() {
   const requestId = ++latestRequest;
@@ -54,9 +56,14 @@ async function loadDogs() {
   }
 }
 
-function openCreate() { formDog.value = null; formOpen.value = true; }
-function openEdit(dog) { formDog.value = dog; formOpen.value = true; }
-function closeForm() { if (!saving.value) formOpen.value = false; }
+function openCreate() { formDog.value = null; formErrors.value = {}; formOpen.value = true; }
+function openEdit(dog) { formDog.value = dog; formErrors.value = {}; formOpen.value = true; }
+function closeForm() {
+  if (!saving.value) {
+    formOpen.value = false;
+    formErrors.value = {};
+  }
+}
 function changePage(nextPage) {
   if (nextPage === page.value || nextPage < 1 || nextPage > pagination.value.totalPages) return;
   page.value = nextPage;
@@ -68,6 +75,7 @@ function notify(message) {
 
 async function saveDog(payload) {
   saving.value = true;
+  formErrors.value = {};
   try {
     if (formDog.value) {
       await dogsApi.update(formDog.value._id, payload);
@@ -80,23 +88,23 @@ async function saveDog(payload) {
     page.value = 1;
     await loadDogs();
   } catch (requestError) {
-    notify(requestError.message);
+    if (Object.keys(requestError.fieldErrors || {}).length) {
+      formErrors.value = requestError.fieldErrors;
+    } else {
+      notify(requestError.message);
+    }
   } finally {
     saving.value = false;
   }
 }
 
-function requestDelete(dog, returnFocus) {
+function requestDelete(dog) {
   deleteTarget.value = dog;
-  deleteReturnFocus = returnFocus;
 }
 
-async function closeDeleteDialog() {
+function closeDeleteDialog() {
   if (deleting.value) return;
   deleteTarget.value = null;
-  await nextTick();
-  if (deleteReturnFocus?.isConnected) deleteReturnFocus.focus();
-  deleteReturnFocus = null;
 }
 
 async function confirmDelete() {
@@ -107,7 +115,6 @@ async function confirmDelete() {
     await dogsApi.remove(dog._id);
     notify(`${dog.name} deleted`);
     deleteTarget.value = null;
-    deleteReturnFocus = null;
     await loadDogs();
   } catch (requestError) {
     notify(requestError.message);
@@ -132,7 +139,7 @@ onBeforeUnmount(() => window.clearTimeout(debounceTimer));
 </script>
 
 <template>
-  <main class="relative mx-auto max-w-290 px-4 pb-4 md:px-7">
+  <main class="relative mx-auto flex min-h-screen max-w-290 flex-col px-4 md:px-7">
     <header class="flex h-14 items-center justify-between">
       <a class="inline-flex items-center gap-2 font-bold tracking-tight text-[var(--text)] no-underline" href="/" aria-label="Dog Catalogue home"><span class="text-xl">🐾</span> Dog Catalogue</a>
       <button class="rounded-[10px] border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm font-semibold text-[var(--text)] transition hover:-translate-y-px hover:bg-[var(--surface-muted)]" type="button" :aria-label="`Switch to ${isDark ? 'light' : 'dark'} mode`" @click="toggleTheme">
@@ -148,11 +155,11 @@ onBeforeUnmount(() => window.clearTimeout(debounceTimer));
         <button v-if="search" class="absolute top-1/2 right-2 grid size-7 -translate-y-1/2 place-items-center rounded-md text-[var(--muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--text)]" type="button" aria-label="Clear search" @click="search = ''">×</button>
       </label>
       <label class="flex items-center gap-2 whitespace-nowrap text-sm text-[var(--muted)]">Sort <select v-model="sort" class="rounded-lg border border-[var(--line)] bg-[var(--surface)] p-2 text-[var(--text)]" aria-label="Sort breeds"><option value="name">Name A–Z</option><option value="newest">Recently added</option><option value="updated">Recently changed</option></select></label>
-      <BaseButton class="ml-auto" variant="primary" @click="openCreate">＋ Add breed</BaseButton>
+      <BaseButton class="sm:ml-auto" variant="primary" @click="openCreate">＋ Add breed</BaseButton>
     </section>
 
     <p v-if="error" class="mb-4 flex justify-between gap-2 rounded-lg bg-[var(--danger)] p-2.5 text-sm text-white" role="alert">{{ error }} <button class="font-bold underline" @click="loadDogs">Try again</button></p>
-    <DogTable :dogs="dogs" :loading="loading" @edit="openEdit" @delete="requestDelete" />
+    <DogTable class="flex-1" :dogs="dogs" :loading="loading" @edit="openEdit" @delete="requestDelete" @details="detailDog = $event" />
     <Pagination
       :page="pagination.page"
       :total-pages="pagination.totalPages"
@@ -161,7 +168,8 @@ onBeforeUnmount(() => window.clearTimeout(debounceTimer));
       @change="changePage"
       @update:limit="limit = $event"
     />
-    <DogForm v-if="formOpen" :dog="formDog" :saving="saving" @close="closeForm" @save="saveDog" />
+    <DogForm v-if="formOpen" :dog="formDog" :saving="saving" :server-errors="formErrors" @close="closeForm" @save="saveDog" />
+    <DogDetailsDialog v-if="detailDog" :dog="detailDog" @close="detailDog = null" />
     <DeleteConfirmDialog
       v-if="deleteTarget"
       :dog="deleteTarget"
