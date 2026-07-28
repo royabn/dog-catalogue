@@ -65,7 +65,7 @@ Open:
 
 - Frontend: `http://localhost:5173`
 - API: `http://localhost:4000/api`
-- Health check: `http://localhost:4000/api/health`
+- Readiness check: `http://localhost:4000/api/health` (returns `503` when MongoDB is unavailable)
 
 ## Use the application
 
@@ -111,6 +111,8 @@ List parameters:
 - `page`: page number
 - `limit`: results per page, maximum 100
 - `sort`: `name`, `newest`, or `updated`
+
+Page-based access is bounded to a 10,000-record result window to avoid expensive database skips.
 
 Example:
 

@@ -8,6 +8,7 @@ import { sanitizePlainText } from '../utils/input.js';
 const maxSubBreeds = 20;
 const maxSubBreedTextLength = 500;
 const maxSearchLength = 80;
+export const maxResultWindow = 10_000;
 const textField = (maxLength) => z.string().transform(sanitizePlainText).pipe(z.string().min(1).max(maxLength));
 const dogInput = z.object({
   name: textField(80),
@@ -23,12 +24,38 @@ const listInput = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(12),
   sort: z.enum(['name', 'newest', 'updated']).default('name'),
   search: z.string().max(maxSearchLength).transform(sanitizePlainText).default(''),
+}).superRefine(({ page, limit }, context) => {
+  if (page > getMaxPage(limit)) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['page'],
+      message: `Page exceeds the ${maxResultWindow}-record result window`,
+    });
+  }
 });
 
+export function getMaxPage(limit) {
+  return Math.max(1, Math.ceil(maxResultWindow / limit));
+}
+
+export function parseListQuery(query) {
+  return listInput.parse(query);
+}
+
 export async function getDogs(req, res) {
-  const query = listInput.parse(req.query);
+  const query = parseListQuery(req.query);
   const { items, total } = await listDogs(query);
-  res.json({ data: items, pagination: { page: query.page, limit: query.limit, total, totalPages: Math.max(1, Math.ceil(total / query.limit)) } });
+  const totalPages = Math.max(1, Math.min(Math.ceil(total / query.limit), getMaxPage(query.limit)));
+  res.json({
+    data: items,
+    pagination: {
+      page: query.page,
+      limit: query.limit,
+      total,
+      totalPages,
+      capped: total > maxResultWindow,
+    },
+  });
 }
 
 export async function getDog(req, res) {

@@ -4,6 +4,7 @@ import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import { fileURLToPath } from 'node:url';
 import { env } from './config/env.js';
+import { getHealth } from './controllers/health.controller.js';
 import { errorHandler, notFound } from './middleware/error-handler.js';
 import { dogRouter } from './routes/dog.routes.js';
 
@@ -13,7 +14,7 @@ app.use(helmet());
 app.use(cors({ origin: env.clientOrigin }));
 app.use(express.json({ limit: '10kb' }));
 app.use('/api', rateLimit({ windowMs: 15 * 60 * 1_000, limit: 500, standardHeaders: 'draft-7', legacyHeaders: false }));
-app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
+app.get('/api/health', getHealth);
 app.use('/api/dogs', dogRouter);
 
 if (env.nodeEnv === 'production') {
